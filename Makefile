@@ -7,10 +7,11 @@
 #
 # Reference gh-pages flow: https://github.com/dynnamitt/hex-terrain/blob/main/Makefile
 
-WWW     := www
-SRC     := src
-SVG_DIR := 2d
-TITLE   := Square Body Projector
+WWW      := www
+SRC      := src
+SVG_DIR  := 2d
+TITLE    := Square Body Projector
+REPO_URL := $(shell git remote get-url origin 2>/dev/null | sed -e 's|git@github.com:|https://github.com/|' -e 's|\.git$$||')
 
 SVGS        := $(wildcard $(SVG_DIR)/*.svg)
 OUT_SVGS    := $(SVGS:$(SVG_DIR)/%.svg=$(WWW)/$(SVG_DIR)/%.svg)
@@ -25,6 +26,7 @@ build: $(WWW)/index.html $(JS_OUT) $(OUT_SVGS)
 $(WWW)/index.html: $(SRC)/index.html.tmpl | $(WWW)
 	sed -e 's|__TITLE__|$(TITLE)|g' \
 	    -e "s|__BUILT__|$$(date -u +%FT%TZ)|g" \
+	    -e 's|__REPO_URL__|$(REPO_URL)|g' \
 	    -e 's|__SVG_OPTIONS__|$(SVG_OPTIONS)|g' \
 	    $< > $@
 
