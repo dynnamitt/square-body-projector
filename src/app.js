@@ -42,11 +42,11 @@ async function load(url) {
   for (let i = 0; i < sampled.length; i++) {
     const l = sampled[i];
     const w = (l.params.w ?? WIDTH_FRAC) * S;
-    specs.push({ paths: l.paths, zFront: 0, zBack: -w });
+    specs.push({ paths: l.paths, zFront: 0, zBack: -w, stepFactor: i });
     let zMin = -w;
     if (l.params.nearAndFar && i > 0) {
       const refFar = farMost[i - 1];
-      specs.push({ paths: l.paths, zFront: refFar, zBack: refFar + w });
+      specs.push({ paths: l.paths, zFront: refFar, zBack: refFar + w, stepFactor: -i });
       zMin = Math.min(zMin, refFar);
     }
     farMost.push(zMin);
@@ -93,19 +93,18 @@ function setupStage() {
       const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
 
       let zMax = 0, zMin = 0;
-      for (const { paths, zFront, zBack } of specs) {
+      for (const { paths, zFront, zBack, stepFactor } of specs) {
         zMax = Math.max(zMax, zFront);
         zMin = Math.min(zMin, zBack);
         for (const { points, fill } of paths) {
           const front = points.map(([x, y]) => new THREE.Vector3(x - cx, -(y - cy), zFront));
           const back  = front.map(v => v.clone().setZ(zBack));
           const color = fill ?? 0xffea06;
-          root.add(ribbon(front, back, color));
-          root.add(loop(front, color));
-          root.add(loop(back,  color));
-          if (fill) {
-            root.add(cap(front, color));
-            root.add(cap(back,  color));
+          const meshes = [ribbon(front, back, color), loop(front, color), loop(back, color)];
+          if (fill) meshes.push(cap(front, color), cap(back, color));
+          for (const m of meshes) {
+            m.userData.stepFactor = stepFactor;
+            root.add(m);
           }
         }
       }
@@ -135,9 +134,10 @@ function setupStage() {
   };
 
   function applyZStep() {
-    if (!decorGroup) return;
     const step = Number(zStepIn.value) || 0;
-    for (const m of decorGroup.children) m.position.z = m.userData.tier * step;
+    root.traverse(o => {
+      if (o.userData.stepFactor !== undefined) o.position.z = o.userData.stepFactor * step;
+    });
   }
 }
 
@@ -157,8 +157,8 @@ function buildDecor(data, cx, cy, extrudeNames) {
         opacity: p.userData?.style?.fillOpacity ?? 1,
       });
       const mesh = new THREE.Mesh(geo, mat);
-      // tier starts at 1 so bottom decor stays off z=0 (ribbon front plane)
-      mesh.userData.tier = i + 1;
+      // stepFactor starts at 1 so bottom decor stays off z=0 (ribbon front plane)
+      mesh.userData.stepFactor = i + 1;
       group.add(mesh);
     }
     i++;
