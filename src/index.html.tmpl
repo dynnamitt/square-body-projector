@@ -9,11 +9,11 @@
     body { display: grid; grid-template-columns: 1fr 1fr; }
     .pane { padding: 16px; box-sizing: border-box; height: 100vh; }
     .pane + .pane { border-left: 1px solid #333; }
-    #svg { width: 100%; height: 100%; object-fit: contain; background: #fff; display: block; }
+    #svg { width: 100%; height: 100%; object-fit: contain; display: block; }
     #cv  { display: block; width: 100%; height: 100%; }
     #hud { position: fixed; top: 8px; left: 10px; opacity: .75; user-select: none; display: flex; gap: .75em; align-items: center; }
     #hud .meta { pointer-events: none; opacity: .7; }
-    #pick { background: #1c1c26; color: #dde; border: 1px solid #333; padding: 3px 6px; font: inherit; }
+    #pick, #bg { background: #1c1c26; color: #dde; border: 1px solid #333; padding: 3px 6px; font: inherit; }
     #err { position: fixed; top: 0; left: 0; right: 0; padding: 1em; background: #511; color: #fcc; white-space: pre-wrap; display: none; }
   </style>
   <script type="importmap">
@@ -31,6 +31,14 @@
   <div class="pane"><canvas id="cv"></canvas></div>
   <div id="hud">
     <select id="pick">__SVG_OPTIONS__</select>
+    <select id="bg">
+      <option value="#111118">dark</option>
+      <option value="white">white</option>
+      <option value="silver">silver</option>
+      <option value="slategray">slategray</option>
+      <option value="steelblue">steelblue</option>
+      <option value="darkslateblue">darkslateblue</option>
+    </select>
     <span class="meta">__TITLE__ &middot; built __BUILT__ &middot; drag to orbit, scroll to zoom</span>
   </div>
   <pre id="err"></pre>

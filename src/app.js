@@ -11,8 +11,16 @@ const PITCH_DEG  = 15;
 
 const stage  = setupStage();
 const picker = document.getElementById('pick');
+const bgSel  = document.getElementById('bg');
 picker.addEventListener('change', e => load(e.target.value).catch(fail));
+bgSel .addEventListener('change', e => applyBg(e.target.value));
+applyBg(bgSel.value);
 load(picker.value).catch(fail);
+
+function applyBg(c) {
+  document.body.style.background = c;
+  stage.setBg(c);
+}
 
 async function load(url) {
   document.getElementById('svg').src = url;
@@ -45,7 +53,6 @@ function setupStage() {
   controls.enableDamping = true;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x111118);
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
   const key = new THREE.DirectionalLight(0xffffff, 0.9);
   key.position.set(1, 1, 2);
@@ -80,10 +87,13 @@ function setupStage() {
 
       root.add(buildDecor(decorData, cx, cy, layer));
 
-      const dist = Math.max(vb.w, vb.h) * 1.3;
-      const yaw   = YAW_DEG   * Math.PI / 180;
-      const pitch = PITCH_DEG * Math.PI / 180;
-      const tz    = -width / 2;
+      const R       = Math.hypot(vb.w / 2, vb.h / 2, width / 2);
+      const fovRad  = cam.fov * Math.PI / 180;
+      const minDist = R / Math.tan(fovRad / 2) / Math.min(1, cam.aspect);
+      const dist    = minDist * 1.2;
+      const yaw     = YAW_DEG   * Math.PI / 180;
+      const pitch   = PITCH_DEG * Math.PI / 180;
+      const tz      = -width / 2;
       cam.position.set(
         dist * Math.sin(yaw) * Math.cos(pitch),
         dist * Math.sin(pitch),
@@ -92,6 +102,7 @@ function setupStage() {
       controls.target.set(0, 0, tz);
       controls.update();
     },
+    setBg(color) { scene.background = new THREE.Color(color); },
   };
 }
 
