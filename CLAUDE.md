@@ -16,27 +16,46 @@ No npm/package manifest. No test or lint commands. ES modules are loaded in-brow
 
 ## What the page does
 
-`src/app.js` fetches the SVG chosen from the `<select id="pick">` dropdown (the dropdown's `<option>`s are generated at build time from `2d/*.svg`). `src/svg.js` parses the XML with `fast-xml-parser` and also runs `three/addons/loaders/SVGLoader` over it. The page then:
+`src/app.js` fetches the SVG chosen from the `<select id="pick">` dropdown (its `<option>`s are generated at build time from `2d/*.svg`). `src/svg.js` parses the XML with `fast-xml-parser` and also runs `three/addons/loaders/SVGLoader` over it. The page then:
 
-1. Resolves the extrudable layer name (see pragma below).
-2. Walks the parsed tree for `<path>` elements inside `<g inkscape:label="$LAYER">`, samples each one into a polyline via `SVGPathElement.getPointAtLength`, and renders a ribbon between the front polyline (z=0) and a back copy at z=-WIDTH.
-3. If the extruded path has a `fill`, adds front + back `ShapeGeometry` caps in the same color.
-4. Renders all non-extrude paths as flat `ShapeGeometry` decor on z=0, using each path's SVG fill color, with a tiny +y nudge per document-order index to prevent z-fighting.
+1. Resolves one or more extrude layers from top-of-document pragmas (see below).
+2. For each layer, walks the parsed tree for `<path>` / `<circle>` inside `<g inkscape:label="$NAME">`, samples each one into a polyline via `SVGPathElement.getPointAtLength`, and renders a ribbon between a front polyline (z=zFront) and a back copy (z=zBack). Width per layer comes from the `w` pragma param (fraction of max X span); default `WIDTH_FRAC = 0.25`.
+3. If the extruded path has a `fill` (attribute or inline `style`), adds front + back `ShapeGeometry` caps in the same color; otherwise renders only ribbon + edge loops in a default yellow.
+4. Renders all non-extrude paths as flat `ShapeGeometry` decor via `SVGLoader.createShapes`, using each path's SVG fill color.
+5. Tags every extrude mesh and every decor mesh with `userData.stepFactor`; `setupStage` multiplies that by the live `#zstep` input value to offset meshes in z, preventing z-fighting and letting the user scrub layer separation at runtime.
+6. Adds a ground plane (`groundY` from SVG top extent) that receives shadows from a shadow-casting directional key light.
 
-## Layer-selection pragma (load-bearing)
+`src/stage.js` owns the Three.js scene, OrbitControls, lights, ground, camera fit, and background/ground-color coupling via the `#bg` picker.
 
-Every SVG in `2d/` declares its extrudable layer via a top-of-document comment:
+## Layer pragmas (load-bearing)
 
-    <!-- 3d_project.layer_name: NAME -->
+Every SVG in `2d/` declares its extrude layers via top-of-document comments. One pragma per extrude layer:
 
-`NAME` is the value of `inkscape:label` on the `<g>` that should be extruded. The project does **not** enforce a single layer name — `da-bus.svg` uses `EXTRUDE`, `2layers.svg` uses `L1`. If the pragma is absent, the code falls back to `"EXTRUDE"`. Hardcoding the name in JS is a bug; the pragma is the source of truth.
+    <!-- 3d_project layerName: NAME [, param: value, ...] -->
+
+Note the grammar: no dot between `3d_project` and `layerName`, camelCase, comma-separated params. Multiple pragmas → multiple extrude layers in document order. If no pragma matches, the code falls back to a single layer named `EXTRUDE` (the `EXTRUDE` constant exported from `svg.js`). Hardcoding layer names in JS is a bug; pragmas are the source of truth.
+
+Params (all optional):
+
+- `w` — extrude width as a fraction of the max X span across all sampled points (default `0.25`).
+- `zStepAdd` — integer added to the z-step tier index for this layer (nudges it forward or backward of where it would otherwise land).
+- `nearAndFar` — when `on`/`true` and this is not the first layer, a second copy of the layer is extruded in +z starting from the previous layer's farthest z-face.
+
+Example (`2d/da-bus.svg`):
+
+    <!-- 3d_project layerName: EXTRUDE, w: .37 -->
+    <!-- 3d_project layerName: rubber , w: .05, nearAndFar: on, zStepAdd: 1 -->
+
+Layer names are free-form (the current `2d/` examples use `EXTRUDE`, `rubber`, `L1`).
 
 ## Module layout
 
-- `src/svg.js` — parsing only. Exports `parseSvg(xml)` (returns `{layer, viewBox, extrudePaths, decor}`), `samplePath`, `maxXSpan`, `inExtrude`, `EXTRUDE` (the fallback constant).
-- `src/app.js` — Three.js scene, dropdown wiring, `buildDecor`, `ribbon`, `cap`, `loop`.
-- `src/index.html.tmpl` — HTML template with `__TITLE__`, `__BUILT__`, `__SVG_OPTIONS__` placeholders filled by `make build`.
+- `src/svg.js` — parsing only. Exports `parseSvg(xml)` returning `{layers: [{name, params, paths}], viewBox, decor}`; plus `samplePath`, `maxXSpan`, `inExtrude(node, names)` (accepts string or array), and the `EXTRUDE` fallback constant.
+- `src/app.js` — dropdown/bg/z-step wiring; builds per-layer `specs` (including `nearAndFar` copies) and calls `stage.show`.
+- `src/stage.js` — `setupStage(canvas, getStep)`: renderer, camera, OrbitControls, lights, shadows, ground plane, `show(specs, viewBox, decor, extrudeNames, groundY)`, `setZStep`, `setBg`; also builds decor via `SVGLoader.createShapes`, skipping paths `inExtrude` of any layer name.
+- `src/mesh.js` — primitive factories: `ribbon`, `cap`, `loop`, `disposeGroup`.
+- `src/index.html.tmpl` — HTML template with `__TITLE__`, `__BUILT__`, `__REPO_URL__`, `__SVG_OPTIONS__` placeholders filled by `make build`.
 
 ## Coding conventions
 
-The user's global `~/.claude/CLAUDE.md` conventions apply — notably the 200-line file limit for dynamic-language files (JS/Python/Lua). When approaching it, split by responsibility (as `svg.js` was split out of `app.js`) instead of editing past it.
+The user's global `~/.claude/CLAUDE.md` conventions apply — notably the 200-line file limit for dynamic-language files (JS/Python/Lua). When approaching it, split by responsibility (as `svg.js`, `stage.js`, and `mesh.js` were split out of `app.js`) instead of editing past it.
