@@ -16,8 +16,8 @@ fast-xml-parser produced a list of vertix+edges as input from SVG XML
     *--------*                           *--------*
 
 ### Legend
-1. '*' vertix and '--" edges in a poly-group (or layer) that trigger a copy placed behind in in z-aksis. 'n' shows new clone of vertix
-2. n vertixes gets z pos +WIDTH const
+1. '*' vertix and '--" edges in a poly-group (or layer) that trigger a copy placed behind in in z-axis. 'n' shows new clone of vertix
+2. n vertixes gets z pos +WIDTH const, a fraction of longest *-vertix dist in x-axis
 3. edges+faces in 3d space is then added between '*' and 'n' vertix
 4. 'x' vertix keep its z pos = 0, '..' edge follow along, no projection added
 
