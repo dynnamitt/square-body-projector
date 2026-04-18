@@ -110,8 +110,8 @@ function setupStage() {
       }
 
       decorGroup = buildDecor(decorData, cx, cy, extrudeNames);
-      applyZStep();
       root.add(decorGroup);
+      applyZStep();
 
       const depth   = zMax - zMin;
       const R       = Math.hypot(vb.w / 2, vb.h / 2, depth / 2);

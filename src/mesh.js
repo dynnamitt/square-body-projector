@@ -24,11 +24,10 @@ export function ribbon(a, b, color) {
 export function cap(pts3, color) {
   const shape = new THREE.Shape(pts3.map(v => new THREE.Vector2(v.x, v.y)));
   const geo = new THREE.ShapeGeometry(shape);
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+  geo.translate(0, 0, pts3[0].z);
+  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
     color, side: THREE.DoubleSide, metalness: 0.1, roughness: 0.7,
   }));
-  mesh.position.z = pts3[0].z;
-  return mesh;
 }
 
 export function loop(pts, color) {
