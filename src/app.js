@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { parseSvg, samplePath, maxXSpan, inExtrude } from './svg.js';
+import { ribbon, cap, loop, disposeGroup } from './mesh.js';
 
 const SAMPLES    = 256;
 const WIDTH_FRAC = 0.25;
@@ -26,14 +27,22 @@ function applyBg(c) {
 async function load(url) {
   document.getElementById('svg').src = url;
   const xml = await fetch(url).then(r => r.text());
-  const { layer, viewBox, extrudePaths, decor } = parseSvg(xml);
-  if (!extrudePaths.length) throw new Error(`no <g inkscape:label="${layer}"> in ${url}`);
-  const paths = extrudePaths.map(p => ({
-    points: samplePath(p.d, SAMPLES),
-    fill:   p.fill,
+  const { layers, viewBox, decor } = parseSvg(xml);
+  const sampled = layers.map(l => ({
+    name:   l.name,
+    params: l.params,
+    paths:  l.paths.map(p => ({ points: samplePath(p.d, SAMPLES), fill: p.fill })),
   }));
-  const width = WIDTH_FRAC * maxXSpan(paths.map(p => p.points));
-  stage.show(paths, width, viewBox, decor, layer);
+  if (!sampled.some(l => l.paths.length)) {
+    throw new Error(`no extrude layers with paths in ${url} (declared: ${layers.map(l => l.name).join(', ')})`);
+  }
+  const S = maxXSpan(sampled.flatMap(l => l.paths.map(p => p.points)));
+  const specs = sampled.map(l => {
+    const w = (l.params.w ?? WIDTH_FRAC) * S;
+    const [zFront, zBack] = l.params.nearAndFar ? [+w, -w] : [0, -w];
+    return { paths: l.paths, zFront, zBack };
+  });
+  stage.show(specs, viewBox, decor, sampled.map(l => l.name));
 }
 
 function setupStage() {
@@ -70,34 +79,40 @@ function setupStage() {
   })();
 
   return {
-    show(paths, width, vb, decorData, layer) {
+    show(specs, vb, decorData, extrudeNames) {
       disposeGroup(root);
       const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
 
-      for (const { points, fill } of paths) {
-        const front = points.map(([x, y]) => new THREE.Vector3(x - cx, -(y - cy), 0));
-        const back  = front.map(v => v.clone().setZ(-width));
-        const color = fill ?? 0xffea06;
-        root.add(ribbon(front, back, color));
-        root.add(loop(front, color));
-        root.add(loop(back,  color));
-        if (fill) {
-          root.add(cap(front, color));
-          root.add(cap(back,  color));
+      let zMax = 0, zMin = 0;
+      for (const { paths, zFront, zBack } of specs) {
+        zMax = Math.max(zMax, zFront);
+        zMin = Math.min(zMin, zBack);
+        for (const { points, fill } of paths) {
+          const front = points.map(([x, y]) => new THREE.Vector3(x - cx, -(y - cy), zFront));
+          const back  = front.map(v => v.clone().setZ(zBack));
+          const color = fill ?? 0xffea06;
+          root.add(ribbon(front, back, color));
+          root.add(loop(front, color));
+          root.add(loop(back,  color));
+          if (fill) {
+            root.add(cap(front, color));
+            root.add(cap(back,  color));
+          }
         }
       }
 
-      decorGroup = buildDecor(decorData, cx, cy, layer);
+      decorGroup = buildDecor(decorData, cx, cy, extrudeNames);
       applyZStep();
       root.add(decorGroup);
 
-      const R       = Math.hypot(vb.w / 2, vb.h / 2, width / 2);
+      const depth   = zMax - zMin;
+      const R       = Math.hypot(vb.w / 2, vb.h / 2, depth / 2);
       const fovRad  = cam.fov * Math.PI / 180;
       const minDist = R / Math.tan(fovRad / 2) / Math.min(1, cam.aspect);
       const dist    = minDist * 1.2;
       const yaw     = YAW_DEG   * Math.PI / 180;
       const pitch   = PITCH_DEG * Math.PI / 180;
-      const tz      = -width / 2;
+      const tz      = (zMax + zMin) / 2;
       cam.position.set(
         dist * Math.sin(yaw) * Math.cos(pitch),
         dist * Math.sin(pitch),
@@ -117,13 +132,13 @@ function setupStage() {
   }
 }
 
-function buildDecor(data, cx, cy, layer) {
+function buildDecor(data, cx, cy, extrudeNames) {
   const group = new THREE.Group();
   group.position.set(-cx, cy, 0);
   group.scale.set(1, -1, 1);
   let i = 0;
   for (const p of data.paths) {
-    if (inExtrude(p.userData?.node, layer)) continue;
+    if (inExtrude(p.userData?.node, extrudeNames)) continue;
     for (const shape of SVGLoader.createShapes(p)) {
       const geo = new THREE.ShapeGeometry(shape);
       const mat = new THREE.MeshBasicMaterial({
@@ -140,47 +155,6 @@ function buildDecor(data, cx, cy, layer) {
     i++;
   }
   return group;
-}
-
-function ribbon(a, b, color) {
-  const n = a.length;
-  const pos = new Float32Array(n * 2 * 3);
-  const idx = [];
-  for (let i = 0; i < n; i++) {
-    pos.set([a[i].x, a[i].y, a[i].z], i * 3);
-    pos.set([b[i].x, b[i].y, b[i].z], (n + i) * 3);
-  }
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    idx.push(i, n + i, j, j, n + i, n + j);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    color, side: THREE.DoubleSide, flatShading: true, metalness: 0.1, roughness: 0.7,
-  }));
-}
-
-function cap(pts3, color) {
-  const shape = new THREE.Shape(pts3.map(v => new THREE.Vector2(v.x, v.y)));
-  const geo = new THREE.ShapeGeometry(shape);
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    color, side: THREE.DoubleSide, metalness: 0.1, roughness: 0.7,
-  }));
-  mesh.position.z = pts3[0].z;
-  return mesh;
-}
-
-function loop(pts, color) {
-  const geo = new THREE.BufferGeometry().setFromPoints([...pts, pts[0]]);
-  return new THREE.Line(geo, new THREE.LineBasicMaterial({ color }));
-}
-
-function disposeGroup(g) {
-  g.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
-  while (g.children.length) g.remove(g.children[0]);
 }
 
 function fail(e) {
