@@ -3,7 +3,7 @@ import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 
 export const EXTRUDE = 'EXTRUDE';
 
-const PRAGMA_RE = /<!--\s*3d_project\.layer_name\s*:\s*(\S+)\s*-->/;
+const PRAGMA_RE = /<!--\s*3d_project\s+layerName\s*:\s*([^>]+?)\s*-->/g;
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -15,11 +15,15 @@ const svgLoader = new SVGLoader();
 export function parseSvg(xml) {
   const doc = parser.parse(xml);
   const root = doc.svg;
-  const layer = PRAGMA_RE.exec(xml)?.[1] ?? EXTRUDE;
+  const specs = parsePragmas(xml);
+  const layers = specs.map(({ name, params }) => ({
+    name,
+    params,
+    paths: layerPaths(root, name),
+  }));
   return {
-    layer,
+    layers,
     viewBox: parseViewBox(root?.$?.viewBox ?? '0 0 512 512'),
-    extrudePaths: extrudePaths(root, layer),
     decor: svgLoader.parse(xml),
   };
 }
@@ -52,11 +56,40 @@ export function maxXSpan(polys) {
   return max;
 }
 
-export function inExtrude(node, label) {
+export function inExtrude(node, names) {
+  const set = Array.isArray(names) ? names : [names];
   for (let n = node; n && n.nodeType === 1; n = n.parentNode) {
-    if (n.getAttribute?.('inkscape:label') === label) return true;
+    const label = n.getAttribute?.('inkscape:label');
+    if (label && set.includes(label)) return true;
   }
   return false;
+}
+
+function parsePragmas(xml) {
+  const out = [];
+  for (const m of xml.matchAll(PRAGMA_RE)) {
+    const [head, ...rest] = m[1].split(',').map(s => s.trim());
+    if (!head) continue;
+    out.push({ name: head, params: parseParams(rest) });
+  }
+  return out.length ? out : [{ name: EXTRUDE, params: {} }];
+}
+
+function parseParams(parts) {
+  const params = {};
+  for (const part of parts) {
+    const m = /^([^=:\s]+)\s*[=:]\s*(.+)$/.exec(part);
+    if (!m) continue;
+    params[m[1]] = coerce(m[2].trim());
+  }
+  return params;
+}
+
+function coerce(v) {
+  if (v === 'on' || v === 'true')  return true;
+  if (v === 'off' || v === 'false') return false;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
 }
 
 function parseViewBox(s) {
@@ -64,7 +97,7 @@ function parseViewBox(s) {
   return { x, y, w, h };
 }
 
-function extrudePaths(root, label) {
+function layerPaths(root, label) {
   const out = [];
   walk(root);
   return out;
@@ -84,10 +117,16 @@ function extrudePaths(root, label) {
       if (k === '$') continue;
       for (const c of Array.isArray(v) ? v : [v]) {
         if (k === 'path' && c?.$?.d) out.push({ d: c.$.d, fill: parseFill(c.$) });
+        else if (k === 'circle' && c?.$) out.push({ d: circleToPath(c.$), fill: parseFill(c.$) });
         else collect(c);
       }
     }
   }
+}
+
+function circleToPath(a) {
+  const cx = +a.cx, cy = +a.cy, r = +a.r;
+  return `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0 Z`;
 }
 
 function parseFill(attrs) {
