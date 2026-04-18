@@ -46,8 +46,8 @@ async function load(url) {
     let zMin = -w;
     if (l.params.nearAndFar && i > 0) {
       const refFar = farMost[i - 1];
-      specs.push({ paths: l.paths, zFront: refFar, zBack: refFar - w });
-      zMin = Math.min(zMin, refFar - w);
+      specs.push({ paths: l.paths, zFront: refFar, zBack: refFar + w });
+      zMin = Math.min(zMin, refFar);
     }
     farMost.push(zMin);
   }
