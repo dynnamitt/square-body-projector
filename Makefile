@@ -1,4 +1,5 @@
-# publish www/
+# publish 
+#        www/
 #          +--- index.html (given an input templ)
 #          +--- 2d/
 #                +--- da-bus.svg
