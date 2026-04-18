@@ -37,11 +37,20 @@ async function load(url) {
     throw new Error(`no extrude layers with paths in ${url} (declared: ${layers.map(l => l.name).join(', ')})`);
   }
   const S = maxXSpan(sampled.flatMap(l => l.paths.map(p => p.points)));
-  const specs = sampled.map(l => {
+  const specs = [];
+  const farMost = [];
+  for (let i = 0; i < sampled.length; i++) {
+    const l = sampled[i];
     const w = (l.params.w ?? WIDTH_FRAC) * S;
-    const [zFront, zBack] = l.params.nearAndFar ? [+w, -w] : [0, -w];
-    return { paths: l.paths, zFront, zBack };
-  });
+    specs.push({ paths: l.paths, zFront: 0, zBack: -w });
+    let zMin = -w;
+    if (l.params.nearAndFar && i > 0) {
+      const refFar = farMost[i - 1];
+      specs.push({ paths: l.paths, zFront: refFar, zBack: refFar - w });
+      zMin = Math.min(zMin, refFar - w);
+    }
+    farMost.push(zMin);
+  }
   stage.show(specs, viewBox, decor, sampled.map(l => l.name));
 }
 
