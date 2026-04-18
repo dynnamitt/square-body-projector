@@ -13,6 +13,7 @@ picker.addEventListener('change', e => load(e.target.value).catch(fail));
 load(picker.value).catch(fail);
 
 async function load(url) {
+  document.getElementById('svg').src = url;
   const xml = await fetch(url).then(r => r.text());
   const { layer, viewBox, extrudePaths, decor } = parseSvg(xml);
   if (!extrudePaths.length) throw new Error(`no <g inkscape:label="${layer}"> in ${url}`);
@@ -31,8 +32,8 @@ function setupStage() {
 
   const cam = new THREE.PerspectiveCamera(45, 1, 1, 5000);
   const resize = () => {
-    renderer.setSize(innerWidth, innerHeight, false);
-    cam.aspect = innerWidth / innerHeight;
+    renderer.setSize(cv.clientWidth, cv.clientHeight, false);
+    cam.aspect = cv.clientWidth / cv.clientHeight;
     cam.updateProjectionMatrix();
   };
   resize();

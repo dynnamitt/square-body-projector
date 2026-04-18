@@ -6,7 +6,9 @@
   <title>__TITLE__</title>
   <style>
     html, body { margin: 0; height: 100%; background: #111118; color: #dde; font: 13px/1.4 system-ui, sans-serif; overflow: hidden; }
-    #cv { display: block; width: 100vw; height: 100vh; }
+    body { display: grid; grid-template-columns: 1fr 1fr; }
+    #svg { width: 100%; height: 100vh; object-fit: contain; background: #fff; }
+    #cv  { display: block; width: 100%; height: 100vh; border-left: 1px solid #333; }
     #hud { position: fixed; top: 8px; left: 10px; opacity: .75; user-select: none; display: flex; gap: .75em; align-items: center; }
     #hud .meta { pointer-events: none; opacity: .7; }
     #pick { background: #1c1c26; color: #dde; border: 1px solid #333; padding: 3px 6px; font: inherit; }
@@ -23,6 +25,7 @@
   </script>
 </head>
 <body>
+  <img id="svg" alt="source">
   <canvas id="cv"></canvas>
   <div id="hud">
     <select id="pick">__SVG_OPTIONS__</select>
