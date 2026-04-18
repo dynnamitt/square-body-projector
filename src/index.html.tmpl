@@ -13,7 +13,9 @@
     #cv  { display: block; width: 100%; height: 100%; }
     #hud { position: fixed; top: 8px; left: 10px; opacity: .75; user-select: none; display: flex; gap: .75em; align-items: center; }
     #hud .meta { pointer-events: none; opacity: .7; }
-    #pick, #bg { background: #1c1c26; color: #dde; border: 1px solid #333; padding: 3px 6px; font: inherit; }
+    #pick, #bg, #zstep { background: #1c1c26; color: #dde; border: 1px solid #333; padding: 3px 6px; font: inherit; }
+    #zstep { width: 5em; }
+    #hud label { display: inline-flex; gap: .3em; align-items: center; }
     #err { position: fixed; top: 0; left: 0; right: 0; padding: 1em; background: #511; color: #fcc; white-space: pre-wrap; display: none; }
   </style>
   <script type="importmap">
@@ -39,6 +41,7 @@
       <option value="steelblue">steelblue</option>
       <option value="darkslateblue">darkslateblue</option>
     </select>
+    <label>z-step <input id="zstep" type="number" step="0.1" value="0.1"></label>
     <span class="meta">__TITLE__ &middot; built __BUILT__ &middot; drag to orbit, scroll to zoom</span>
   </div>
   <pre id="err"></pre>

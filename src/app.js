@@ -5,15 +5,16 @@ import { parseSvg, samplePath, maxXSpan, inExtrude } from './svg.js';
 
 const SAMPLES    = 256;
 const WIDTH_FRAC = 0.25;
-const Y_STEP     = 0.1;
 const YAW_DEG    = 22;
 const PITCH_DEG  = 15;
 
-const stage  = setupStage();
-const picker = document.getElementById('pick');
-const bgSel  = document.getElementById('bg');
-picker.addEventListener('change', e => load(e.target.value).catch(fail));
-bgSel .addEventListener('change', e => applyBg(e.target.value));
+const stage   = setupStage();
+const picker  = document.getElementById('pick');
+const bgSel   = document.getElementById('bg');
+const zStepIn = document.getElementById('zstep');
+picker .addEventListener('change', e => load(e.target.value).catch(fail));
+bgSel  .addEventListener('change', e => applyBg(e.target.value));
+zStepIn.addEventListener('input',  () => stage.setZStep());
 applyBg(bgSel.value);
 load(picker.value).catch(fail);
 
@@ -60,6 +61,7 @@ function setupStage() {
 
   const root = new THREE.Group();
   scene.add(root);
+  let decorGroup = null;
 
   (function tick() {
     requestAnimationFrame(tick);
@@ -85,7 +87,9 @@ function setupStage() {
         }
       }
 
-      root.add(buildDecor(decorData, cx, cy, layer));
+      decorGroup = buildDecor(decorData, cx, cy, layer);
+      applyZStep();
+      root.add(decorGroup);
 
       const R       = Math.hypot(vb.w / 2, vb.h / 2, width / 2);
       const fovRad  = cam.fov * Math.PI / 180;
@@ -102,8 +106,15 @@ function setupStage() {
       controls.target.set(0, 0, tz);
       controls.update();
     },
+    setZStep() { applyZStep(); },
     setBg(color) { scene.background = new THREE.Color(color); },
   };
+
+  function applyZStep() {
+    if (!decorGroup) return;
+    const step = Number(zStepIn.value) || 0;
+    for (const m of decorGroup.children) m.position.z = m.userData.tier * step;
+  }
 }
 
 function buildDecor(data, cx, cy, layer) {
@@ -122,7 +133,8 @@ function buildDecor(data, cx, cy, layer) {
         opacity: p.userData?.style?.fillOpacity ?? 1,
       });
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.y = -i * Y_STEP;
+      // tier starts at 1 so bottom decor stays off z=0 (ribbon front plane)
+      mesh.userData.tier = i + 1;
       group.add(mesh);
     }
     i++;
