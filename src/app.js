@@ -6,6 +6,8 @@ import { parseSvg, samplePath, maxXSpan, inExtrude } from './svg.js';
 const SAMPLES    = 256;
 const WIDTH_FRAC = 0.25;
 const Y_STEP     = 0.1;
+const YAW_DEG    = 22;
+const PITCH_DEG  = 15;
 
 const stage  = setupStage();
 const picker = document.getElementById('pick');
@@ -78,8 +80,16 @@ function setupStage() {
 
       root.add(buildDecor(decorData, cx, cy, layer));
 
-      cam.position.set(0, 0, Math.max(vb.w, vb.h) * 1.3);
-      controls.target.set(0, 0, -width / 2);
+      const dist = Math.max(vb.w, vb.h) * 1.3;
+      const yaw   = YAW_DEG   * Math.PI / 180;
+      const pitch = PITCH_DEG * Math.PI / 180;
+      const tz    = -width / 2;
+      cam.position.set(
+        dist * Math.sin(yaw) * Math.cos(pitch),
+        dist * Math.sin(pitch),
+        tz + dist * Math.cos(yaw) * Math.cos(pitch),
+      );
+      controls.target.set(0, 0, tz);
       controls.update();
     },
   };
