@@ -2,7 +2,7 @@
 
 Webpage utilizing WebGL/Tree.js canvas that renders from a 2d shape
 
-Given selection of 2d svg set that has a group of vertix/edges "annoted" for z-axis projection,
+Given selection of 2d svg set that has a group (or full layer) of vertix/edges "annoted" for z-axis projection,
 fast-xml-parser produced a list of vertix+edges as input from SVG XML
 
 ## Sample (box with a window)
