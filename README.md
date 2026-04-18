@@ -23,4 +23,4 @@ fast-xml-parser produced a list of vertix+edges as input from SVG XML
 
 ## Future iterations
 
-- Multiple layers of poly-group making complex x-axis faces
+- Multiple layers of poly-group making complex connecting faces
