@@ -42,11 +42,12 @@ async function load(url) {
   for (let i = 0; i < sampled.length; i++) {
     const l = sampled[i];
     const w = (l.params.w ?? WIDTH_FRAC) * S;
-    specs.push({ paths: l.paths, zFront: 0, zBack: -w, stepFactor: i });
+    const tier = i + (l.params.zStepAdd ?? 0);
+    specs.push({ paths: l.paths, zFront: 0, zBack: -w, stepFactor: tier });
     let zMin = -w;
     if (l.params.nearAndFar && i > 0) {
       const refFar = farMost[i - 1];
-      specs.push({ paths: l.paths, zFront: refFar, zBack: refFar + w, stepFactor: -i });
+      specs.push({ paths: l.paths, zFront: refFar, zBack: refFar + w, stepFactor: -tier });
       zMin = Math.min(zMin, refFar);
     }
     farMost.push(zMin);

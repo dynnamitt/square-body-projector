@@ -3,7 +3,7 @@ import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 
 export const EXTRUDE = 'EXTRUDE';
 
-const PRAGMA_RE = /<!--\s*3d_project\.layer_name\s*:\s*([^>]+?)\s*-->/g;
+const PRAGMA_RE = /<!--\s*3d_project\s+layerName\s*:\s*([^>]+?)\s*-->/g;
 
 const parser = new XMLParser({
   ignoreAttributes: false,
