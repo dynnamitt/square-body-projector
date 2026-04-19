@@ -15,16 +15,14 @@ const PRESETS = [
 ];
 
 const picker   = document.getElementById('pick');
-const bgSel    = document.getElementById('bg');
 const colorSel = document.getElementById('color');
 const zStepIn  = document.getElementById('zstep');
 const stage    = setupStage(document.getElementById('cv'), () => Number(zStepIn.value) || 0);
 
 picker  .addEventListener('change', e => load(e.target.value).catch(fail));
-bgSel   .addEventListener('change', e => applyBg(e.target.value));
 colorSel.addEventListener('change', () => applyColor(colorSel.value));
 zStepIn .addEventListener('input',  () => stage.setZStep());
-applyBg(bgSel.value);
+applyColor(DEFAULT_COLOR);
 load(picker.value).catch(fail);
 
 function applyBg(c) {

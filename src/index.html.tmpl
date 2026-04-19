@@ -30,12 +30,12 @@
     #hud label { display: inline-flex; gap: .35em; align-items: center; color: var(--muted); }
     #hud .meta a { color: var(--fg); text-decoration: none; border-bottom: 1px dotted var(--border); }
     #hud .meta a:hover { color: var(--accent); border-bottom-color: var(--accent); }
-    #pick, #bg, #color, #zstep {
+    #pick, #color, #zstep {
       background: #1c1c26; color: var(--fg);
       border: 1px solid var(--border); border-radius: 4px;
       padding: 4px 8px; font: inherit;
     }
-    #pick:focus, #bg:focus, #color:focus, #zstep:focus { outline: none; border-color: var(--accent); }
+    #pick:focus, #color:focus, #zstep:focus { outline: none; border-color: var(--accent); }
     #zstep { width: 5em; }
     main {
       display: grid; grid-template-columns: 1fr 1fr;
@@ -71,14 +71,6 @@
     <div class="controls">
       <select id="pick">__SVG_OPTIONS__</select>
       <select id="color"></select>
-      <select id="bg">
-        <option value="#111118">dark</option>
-        <option value="white">white</option>
-        <option value="silver">silver</option>
-        <option value="slategray">slategray</option>
-        <option value="steelblue" selected>steelblue</option>
-        <option value="darkslateblue">darkslateblue</option>
-      </select>
       <label>z-step <input id="zstep" type="number" step="0.1" value="0.1"></label>
     </div>
     <div class="meta"><a href="__REPO_URL__" target="_blank" rel="noopener">__TITLE__</a> &middot; built __BUILT__ &middot; drag to orbit, scroll to zoom</div>
