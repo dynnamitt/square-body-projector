@@ -52,7 +52,7 @@ export function setupStage(cv, getStep) {
       const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
 
       let zMax = 0, zMin = 0;
-      for (const { paths, zFront, zBack, stepFactor } of specs) {
+      for (const { paths, zFront, zBack, stepFactor, layerIndex } of specs) {
         zMax = Math.max(zMax, zFront);
         zMin = Math.min(zMin, zBack);
         for (const { points, fill } of paths) {
@@ -63,6 +63,7 @@ export function setupStage(cv, getStep) {
           if (fill) meshes.push(cap(front, color), cap(back, color));
           for (const m of meshes) {
             m.userData.stepFactor = stepFactor;
+            m.userData.layerIndex = layerIndex;
             m.castShadow = true;
             m.receiveShadow = true;
             root.add(m);
@@ -109,6 +110,11 @@ export function setupStage(cv, getStep) {
       currentBg = color;
       scene.background = new THREE.Color(color);
       if (groundPlane) groundPlane.material.color.copy(groundColor(color));
+    },
+    setLayerColor(idx, hex) {
+      root.traverse(o => {
+        if (o.userData.layerIndex === idx && o.material?.color) o.material.color.set(hex);
+      });
     },
   };
 
