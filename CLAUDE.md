@@ -48,12 +48,36 @@ Example (`2d/da-bus.svg`):
 
 Layer names are free-form (the current `2d/` examples use `EXTRUDE`, `rubber`, `L1`).
 
+### `texture` pragma — side-wall rasterized layer
+
+Tags an Inkscape layer as a **side-wall texture** that is rasterized (SVG → `CanvasTexture`) and mapped onto the left or right wall of a referenced `3d_project` extrude. Front/back walls are already handled by extrude caps; `texture` fills the blank left/right ribbons.
+
+    <!-- texture layerName: NAME, ref: EXTRUDE_NAME, side: left|right -->
+
+Required params:
+
+- `layerName` — the `inkscape:label` of the `<g>` to rasterize.
+- `ref` — the `layerName` of a `3d_project` extrude whose wall this decorates. Bounding box + width come from that extrude's sampled points.
+- `side` — `left` or `right`.
+
+Semantics: missing/invalid `ref` logs an error and skips. Texture layers are excluded from flat `decor` so they don't double-render. Absence of any `texture` pragma preserves current behavior. See **Placement** below for the rendered mesh contract.
+
+**Texture layers may live outside the source viewBox.** Illustrators often park side-view details (frontside/backside panels, door handles, vents, stripes, badges) outside the main viewport so the raw `2d/` SVG renders cleanly without cluttering the face view. `src/raster.js` therefore ignores the source `viewBox` and measures each subtree's own `getBBox()` to build a tight viewBox for rasterization (1:1 SVG-unit scale, aspect preserved — no stretching).
+
+**Placement on the ribbon (cube-side UV) — TODO, see GH #5.** The floating-plane approach was reverted; the parser + rasterizer are in place but no mesh is emitted yet. Design draft parked in `.claude/projects/-home-kdm-CODE-square-body-projector/memory/project_cube_side_uv_draft.md`.
+
+Example (`2d/da-bus.svg`):
+
+    <!-- texture layerName: frontside, ref:EXTRUDE, side: right -->
+    <!-- texture layerName: backside,  ref:EXTRUDE, side: left  -->
+
 ## Module layout
 
-- `src/svg.js` — parsing only. Exports `parseSvg(xml)` returning `{layers: [{name, params, paths}], viewBox, decor}`; plus `samplePath`, `maxXSpan`, `inExtrude(node, names)` (accepts string or array), and the `EXTRUDE` fallback constant.
-- `src/app.js` — dropdown/bg/z-step wiring; builds per-layer `specs` (including `nearAndFar` copies) and calls `stage.show`.
-- `src/stage.js` — `setupStage(canvas, getStep)`: renderer, camera, OrbitControls, lights, shadows, ground plane, `show(specs, viewBox, decor, extrudeNames, groundY)`, `setZStep`, `setBg`; also builds decor via `SVGLoader.createShapes`, skipping paths `inExtrude` of any layer name.
+- `src/svg.js` — parsing only. Exports `parseSvg(xml)` returning `{layers, textures, viewBox, rootAttrs, defs, decor}` where `textures: [{name, ref, side, params, subtree}]`; plus `samplePath`, `maxXSpan`, `inExtrude(node, names)` (accepts string or array), and the `EXTRUDE` fallback constant.
+- `src/app.js` — dropdown/bg/z-step wiring; builds per-layer `specs` (name, bounds, `nearAndFar` copies) and calls `stage.show`.
+- `src/stage.js` — `setupStage(canvas, getStep)`: renderer, camera, OrbitControls, lights, shadows, ground plane, `show(specs, vb, decor, extrudeNames, textures, textureNames, svgMeta, groundY)`, `setZStep`, `setBg`; also builds decor via `SVGLoader.createShapes`, skipping paths `inExtrude` of any extrude OR texture layer name.
 - `src/mesh.js` — primitive factories: `ribbon`, `cap`, `loop`, `disposeGroup`.
+- `src/raster.js` — SVG subtree → standalone SVG string (`XMLBuilder`) → `CanvasTexture`. Exports `buildStandaloneSvg`, `tightViewBox`, `rasterize`. (Mesh-building for textures is TODO, see GH #5.)
 - `src/index.html.tmpl` — HTML template with `__TITLE__`, `__BUILT__`, `__REPO_URL__`, `__SVG_OPTIONS__` placeholders filled by `make build`.
 
 ## Coding conventions

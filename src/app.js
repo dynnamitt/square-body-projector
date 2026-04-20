@@ -38,7 +38,7 @@ function applyColor(hex) {
 async function load(url) {
   document.getElementById('svg').src = url;
   const xml = await fetch(url).then(r => r.text());
-  const { layers, viewBox, decor } = parseSvg(xml);
+  const { layers, textures, viewBox, rootAttrs, defs, decor } = parseSvg(xml);
   const sampled = layers.map(l => ({
     name:   l.name,
     params: l.params,
@@ -58,18 +58,31 @@ async function load(url) {
     const l = sampled[i];
     const w = (l.params.w ?? WIDTH_FRAC) * S;
     const tier = i + (l.params.zStepAdd ?? 0);
-    specs.push({ paths: l.paths, zFront: 0, zBack: -w, stepFactor: tier, layerIndex: i });
+    const bounds = pathBounds(l.paths);
+    specs.push({ name: l.name, bounds, paths: l.paths, zFront: 0, zBack: -w, stepFactor: tier, layerIndex: i });
     let zMin = -w;
     if (l.params.nearAndFar && i > 0) {
       const refFar = farMost[i - 1];
-      specs.push({ paths: l.paths, zFront: refFar, zBack: refFar + w, stepFactor: -tier, layerIndex: i });
+      specs.push({ name: l.name, bounds, paths: l.paths, zFront: refFar, zBack: refFar + w, stepFactor: -tier, layerIndex: i });
       zMin = Math.min(zMin, refFar);
     }
     farMost.push(zMin);
   }
-  stage.show(specs, viewBox, decor, sampled.map(l => l.name), groundY);
+  const textureNames = textures.map(t => t.name);
+  stage.show(specs, viewBox, decor, sampled.map(l => l.name), textures, textureNames, { rootAttrs, defs }, groundY);
   populateColors(uniqueFill(sampled[0]?.paths ?? []));
   applyColor(colorSel.value);
+}
+
+function pathBounds(paths) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const { points } of paths) {
+    for (const [x, y] of points) {
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+  }
+  return { minX, maxX, minY, maxY };
 }
 
 function uniqueFill(paths) {

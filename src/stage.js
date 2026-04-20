@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { ribbon, cap, loop, disposeGroup } from './mesh.js';
 import { inExtrude } from './svg.js';
+import { buildStandaloneSvg, tightViewBox } from './raster.js';
 
 const YAW_DEG   = 22;
 const PITCH_DEG = 15;
@@ -10,8 +11,10 @@ const PITCH_DEG = 15;
 export function setupStage(cv, getStep) {
   const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
   renderer.setPixelRatio(devicePixelRatio);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
   const cam = new THREE.PerspectiveCamera(45, 1, 1, 5000);
   const resize = () => {
@@ -47,11 +50,15 @@ export function setupStage(cv, getStep) {
   })();
 
   return {
-    show(specs, vb, decorData, extrudeNames, groundY) {
+    show(specs, vb, decorData, extrudeNames, textures, textureNames, svgMeta, groundY) {
       disposeGroup(root);
       const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
 
       let zMax = 0, zMin = 0;
+      const specByName = new Map();
+      for (const spec of specs) {
+        if (!specByName.has(spec.name)) specByName.set(spec.name, spec);
+      }
       for (const { paths, zFront, zBack, stepFactor, layerIndex } of specs) {
         zMax = Math.max(zMax, zFront);
         zMin = Math.min(zMin, zBack);
@@ -71,8 +78,9 @@ export function setupStage(cv, getStep) {
         }
       }
 
-      decorGroup = buildDecor(decorData, cx, cy, extrudeNames);
+      decorGroup = buildDecor(decorData, cx, cy, [...extrudeNames, ...textureNames]);
       root.add(decorGroup);
+      buildTextures(textures, specByName, cx, cy, vb, svgMeta);
       applyZStep();
 
       const planeSize = Math.max(vb.w, vb.h) * 6;
@@ -123,6 +131,24 @@ export function setupStage(cv, getStep) {
     root.traverse(o => {
       if (o.userData.stepFactor !== undefined) o.position.z = o.userData.stepFactor * step;
     });
+  }
+
+  // TODO(issue #5): paint the texture as a cube-side UV map on the actual
+  // side ribbon. Parked draft in
+  // .claude/projects/-home-kdm-CODE-square-body-projector/memory/project_cube_side_uv_draft.md
+  // For now: validate pragma refs + bbox, warn on failure, emit no meshes.
+  function buildTextures(textures, specByName, _cx, _cy, vb, svgMeta) {
+    if (!textures?.length) return;
+    for (const tex of textures) {
+      const ref = specByName.get(tex.ref);
+      if (!ref?.bounds) {
+        console.error(`texture "${tex.name}" ref "${tex.ref}" is not a 3d_project layer; skipping`);
+        continue;
+      }
+      const probe = buildStandaloneSvg(tex.subtree, vb, svgMeta?.defs);
+      const tight = tightViewBox(probe);
+      if (!tight) console.warn(`texture "${tex.name}" has no measurable bbox; skipping`);
+    }
   }
 }
 

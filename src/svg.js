@@ -3,7 +3,8 @@ import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 
 export const EXTRUDE = 'EXTRUDE';
 
-const PRAGMA_RE = /<!--\s*3d_project\s+layerName\s*:\s*([^>]+?)\s*-->/g;
+const PRAGMA_RE  = /<!--\s*3d_project\s+layerName\s*:\s*([^>]+?)\s*-->/g;
+const TEXTURE_RE = /<!--\s*texture\s+layerName\s*:\s*([^>]+?)\s*-->/g;
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -21,9 +22,26 @@ export function parseSvg(xml) {
     params,
     paths: layerPaths(root, name),
   }));
+  const textures = parseTexturePragmas(xml)
+    .map(({ name, params }) => {
+      if (!params.ref || !params.side) {
+        console.warn(`texture "${name}" missing ref/side; skipping`);
+        return null;
+      }
+      const subtree = findLayerGroup(root, name);
+      if (!subtree) {
+        console.warn(`texture layer "${name}" not found; skipping`);
+        return null;
+      }
+      return { name, ref: params.ref, side: params.side, params, subtree };
+    })
+    .filter(Boolean);
   return {
     layers,
+    textures,
     viewBox: parseViewBox(root?.$?.viewBox ?? '0 0 512 512'),
+    rootAttrs: root?.$ ?? {},
+    defs: root?.defs ?? null,
     decor: svgLoader.parse(xml),
   };
 }
@@ -73,6 +91,32 @@ function parsePragmas(xml) {
     out.push({ name: head, params: parseParams(rest) });
   }
   return out.length ? out : [{ name: EXTRUDE, params: {} }];
+}
+
+function parseTexturePragmas(xml) {
+  const out = [];
+  for (const m of xml.matchAll(TEXTURE_RE)) {
+    const [head, ...rest] = m[1].split(',').map(s => s.trim());
+    if (!head) continue;
+    out.push({ name: head, params: parseParams(rest) });
+  }
+  return out;
+}
+
+function findLayerGroup(root, label) {
+  let found = null;
+  (function walk(n) {
+    if (found || !n || typeof n !== 'object') return;
+    for (const [k, v] of Object.entries(n)) {
+      if (k === '$') continue;
+      for (const c of Array.isArray(v) ? v : [v]) {
+        if (found) return;
+        if (k === 'g' && c?.$?.['inkscape:label'] === label) { found = c; return; }
+        walk(c);
+      }
+    }
+  })(root);
+  return found;
 }
 
 function parseParams(parts) {
