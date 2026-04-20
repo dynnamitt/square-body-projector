@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { XMLBuilder } from 'fast-xml-parser';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const PX_LONG = 1024;
 
 const builder = new XMLBuilder({
   ignoreAttributes: false,
@@ -47,23 +46,28 @@ export function tightViewBox(svgStr, pad = 4) {
   return { x: b.x - pad, y: b.y - pad, w: b.width + pad * 2, h: b.height + pad * 2 };
 }
 
-export function rasterize(svgStr, viewBox, maxAniso) {
-  const aspect = viewBox.w / viewBox.h;
-  const pxW = aspect >= 1 ? PX_LONG : Math.round(PX_LONG * aspect);
-  const pxH = aspect >= 1 ? Math.round(PX_LONG / aspect) : PX_LONG;
+// Paints the SVG into a centered `contentW x contentH` rectangle of a
+// transparent `canvasW x canvasH` canvas. The padding lets default UVs on a
+// cube-side sub-ribbon expose only the content region.
+export function rasterize(svgStr, canvasW, canvasH, contentW, contentH, maxAniso) {
   const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const cv = document.createElement('canvas');
-      cv.width = pxW;
-      cv.height = pxH;
-      cv.getContext('2d').drawImage(img, 0, 0, pxW, pxH);
+      cv.width = canvasW;
+      cv.height = canvasH;
+      const ctx = cv.getContext('2d');
+      ctx.clearRect(0, 0, canvasW, canvasH);
+      const dx = Math.round((canvasW - contentW) / 2);
+      const dy = Math.round((canvasH - contentH) / 2);
+      ctx.drawImage(img, dx, dy, contentW, contentH);
       URL.revokeObjectURL(url);
       const tex = new THREE.CanvasTexture(cv);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = maxAniso;
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
       tex.needsUpdate = true;
       resolve(tex);
     };

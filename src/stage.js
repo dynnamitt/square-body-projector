@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { ribbon, cap, loop, disposeGroup } from './mesh.js';
 import { inExtrude } from './svg.js';
-import { buildStandaloneSvg, tightViewBox } from './raster.js';
+import { build as buildTextures } from './texture.js';
 
 const YAW_DEG   = 22;
 const PITCH_DEG = 15;
@@ -42,6 +42,7 @@ export function setupStage(cv, getStep) {
   let decorGroup = null;
   let groundPlane = null;
   let currentBg = '#111118';
+  let generation = 0;
 
   (function tick() {
     requestAnimationFrame(tick);
@@ -52,6 +53,7 @@ export function setupStage(cv, getStep) {
   return {
     show(specs, vb, decorData, extrudeNames, textures, textureNames, svgMeta, groundY) {
       disposeGroup(root);
+      generation++;
       const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
 
       let zMax = 0, zMin = 0;
@@ -80,7 +82,7 @@ export function setupStage(cv, getStep) {
 
       decorGroup = buildDecor(decorData, cx, cy, [...extrudeNames, ...textureNames]);
       root.add(decorGroup);
-      buildTextures(textures, specByName, cx, cy, vb, svgMeta);
+      buildTextures(textures, specByName, vb, svgMeta, root, maxAniso, () => generation);
       applyZStep();
 
       const planeSize = Math.max(vb.w, vb.h) * 6;
@@ -121,7 +123,7 @@ export function setupStage(cv, getStep) {
     },
     setLayerColor(idx, hex) {
       root.traverse(o => {
-        if (o.userData.layerIndex === idx && o.material?.color) o.material.color.set(hex);
+        if (o.userData.layerIndex === idx && o.material?.color && !o.material.map) o.material.color.set(hex);
       });
     },
   };
@@ -131,24 +133,6 @@ export function setupStage(cv, getStep) {
     root.traverse(o => {
       if (o.userData.stepFactor !== undefined) o.position.z = o.userData.stepFactor * step;
     });
-  }
-
-  // TODO(issue #5): paint the texture as a cube-side UV map on the actual
-  // side ribbon. Parked draft in
-  // .claude/projects/-home-kdm-CODE-square-body-projector/memory/project_cube_side_uv_draft.md
-  // For now: validate pragma refs + bbox, warn on failure, emit no meshes.
-  function buildTextures(textures, specByName, _cx, _cy, vb, svgMeta) {
-    if (!textures?.length) return;
-    for (const tex of textures) {
-      const ref = specByName.get(tex.ref);
-      if (!ref?.bounds) {
-        console.error(`texture "${tex.name}" ref "${tex.ref}" is not a 3d_project layer; skipping`);
-        continue;
-      }
-      const probe = buildStandaloneSvg(tex.subtree, vb, svgMeta?.defs);
-      const tight = tightViewBox(probe);
-      if (!tight) console.warn(`texture "${tex.name}" has no measurable bbox; skipping`);
-    }
   }
 }
 
