@@ -36,6 +36,9 @@ function applyColor(hex) {
 }
 
 async function load(url) {
+  const errBox = document.getElementById('err');
+  errBox.textContent = '';
+  errBox.style.display = 'none';
   document.getElementById('svg').src = url;
   const xml = await fetch(url).then(r => r.text());
   const { layers, textures, viewBox, rootAttrs, defs, decor } = parseSvg(xml);
