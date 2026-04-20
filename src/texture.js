@@ -59,9 +59,14 @@ function buildRibbon(tex, ref, cx, cy, vb, svgMeta, maxAniso, getGen, root) {
   const contentH = Math.min(canvasH, Math.round(tight.h * K));
   if (contentW < 2 || contentH < 2) { console.warn(`texture "${tex.name}" content too small to rasterize; skipping`); return; }
 
+  const { vert, horiz } = parseAlignment(tex.params?.alignment);
+  // canvas-X → ribbon V (depth); canvas-Y → ribbon U (along-perimeter), inverted.
+  const dx = horiz === 'left' ? 0 : horiz === 'right' ? canvasW - contentW : Math.round((canvasW - contentW) / 2);
+  const dy = vert  === 'top'  ? canvasH - contentH : vert === 'bottom' ? 0 : Math.round((canvasH - contentH) / 2);
+
   const tightSvg = buildStandaloneSvg(tex.subtree, tight, svgMeta?.defs);
   const gen = getGen();
-  rasterize(tightSvg, canvasW, canvasH, contentW, contentH, maxAniso).then(canvasTex => {
+  rasterize(tightSvg, canvasW, canvasH, contentW, contentH, maxAniso, { dx, dy }).then(canvasTex => {
     if (getGen() !== gen) { canvasTex.dispose(); return; }
     canvasTex.center.set(0.5, 0.5);
     canvasTex.rotation = Math.PI / 2;
@@ -97,16 +102,37 @@ function buildCap(tex, ref, cx, cy, vb, svgMeta, maxAniso, getGen, root) {
       polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
     });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(tight.w, tight.h), mat);
-    const tcx = tight.x + tight.w / 2;
-    const tcy = tight.y + tight.h / 2;
+    const { vert, horiz } = parseAlignment(tex.params?.alignment);
+    const rb = ref.bounds;
+    const py =
+      vert === 'top'    ? -(rb.minY - cy) - tight.h / 2 :
+      vert === 'bottom' ? -(rb.maxY - cy) + tight.h / 2 :
+                          -((rb.minY + rb.maxY) / 2 - cy);
+    const px =
+      horiz === 'left'  ? (rb.minX - cx) + tight.w / 2 :
+      horiz === 'right' ? (rb.maxX - cx) - tight.w / 2 :
+                          ((rb.minX + rb.maxX) / 2 - cx);
     const z = tex.side === 'near' ? ref.zFront + CAP_EPS : ref.zBack - CAP_EPS;
-    mesh.position.set(tcx - cx, -(tcy - cy), z);
+    mesh.position.set(px, py, z);
     if (tex.side === 'far') mesh.rotation.y = Math.PI;
     mesh.userData.layerIndex = ref.layerIndex;
     mesh.castShadow = false;
     mesh.receiveShadow = true;
     root.add(mesh);
   }).catch(e => console.error(`texture "${tex.name}" rasterize failed:`, e));
+}
+
+const ALIGN_VERT  = new Set(['top', 'center', 'bottom']);
+const ALIGN_HORIZ = new Set(['left', 'mid', 'right']);
+
+function parseAlignment(s) {
+  if (typeof s !== 'string') return { vert: 'top', horiz: 'left' };
+  const [v, h] = s.trim().toLowerCase().split('-');
+  if (!ALIGN_VERT.has(v) || !ALIGN_HORIZ.has(h)) {
+    console.warn(`alignment "${s}" invalid; expected VERT-HORIZ (VERT: top|center|bottom, HORIZ: left|mid|right); falling back to top-left`);
+    return { vert: 'top', horiz: 'left' };
+  }
+  return { vert: v, horiz: h };
 }
 
 export function sideRange(pts, side, params) {

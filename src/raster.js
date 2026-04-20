@@ -46,10 +46,10 @@ export function tightViewBox(svgStr, pad = 4) {
   return { x: b.x - pad, y: b.y - pad, w: b.width + pad * 2, h: b.height + pad * 2 };
 }
 
-// Paints the SVG into a centered `contentW x contentH` rectangle of a
-// transparent `canvasW x canvasH` canvas. The padding lets default UVs on a
-// cube-side sub-ribbon expose only the content region.
-export function rasterize(svgStr, canvasW, canvasH, contentW, contentH, maxAniso) {
+// Paints the SVG into a `contentW x contentH` rectangle of a transparent
+// `canvasW x canvasH` canvas. `anchor.dx`/`anchor.dy` set the top-left of the
+// content on the canvas; default centres it.
+export function rasterize(svgStr, canvasW, canvasH, contentW, contentH, maxAniso, anchor) {
   const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   return new Promise((resolve, reject) => {
@@ -60,8 +60,8 @@ export function rasterize(svgStr, canvasW, canvasH, contentW, contentH, maxAniso
       cv.height = canvasH;
       const ctx = cv.getContext('2d');
       ctx.clearRect(0, 0, canvasW, canvasH);
-      const dx = Math.round((canvasW - contentW) / 2);
-      const dy = Math.round((canvasH - contentH) / 2);
+      const dx = anchor?.dx ?? Math.round((canvasW - contentW) / 2);
+      const dy = anchor?.dy ?? Math.round((canvasH - contentH) / 2);
       ctx.drawImage(img, dx, dy, contentW, contentH);
       URL.revokeObjectURL(url);
       const tex = new THREE.CanvasTexture(cv);

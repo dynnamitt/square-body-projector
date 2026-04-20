@@ -61,6 +61,20 @@ render at 1:1 scale regardless.
 | `side`      | Which face (see table below). **Required.**                               | —       |
 | `detect`    | For `left`/`right` only: `band` or `first`. See below.                    | `band`  |
 | `tol`       | For `detect: band`: tolerance as a fraction of the X span.                | `0.02`  |
+| `alignment` | Anchor on the ref's face: `VERT-HORIZ` (see below).                       | `top-left` |
+
+#### `alignment` values
+
+`VERT` ∈ `top` / `center` / `bottom`; `HORIZ` ∈ `left` / `mid` / `right` —
+nine combinations. Malformed values warn and fall back to `top-left`.
+
+- **Caps (`near`/`far`)** — anchor is the named corner of the ref's SVG bbox.
+  `top-left` lands the texture's top-left on the ref's top-left; `center-mid`
+  centres the plane on the ref.
+- **Ribbons (`left`/`right`)** — `VERT` controls along-perimeter position
+  (`top` = perimeter-start, typically near the top of the face in world for
+  vertical edges); `HORIZ` controls depth (`left` = near face, `right` = far
+  face).
 
 #### `side` values
 
